@@ -1,0 +1,204 @@
+# Kubernetes CronJob для периодического резервного копирования ELMA365
+# CronJob автоматически запускает Job по расписанию
+# Расписание использует Unix cron синтаксис (часовой пояс: UTC)
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: elma-backup-daily
+  namespace: elma365
+  labels:
+    app: elma-backupper
+    mode: cronjob
+spec:
+  # Расписание запуска (формат cron):
+  # Поле 1: минуты (0-59)
+  # Поле 2: часы (0-23)
+  # Поле 3: день месяца (1-31)
+  # Поле 4: месяц (1-12)
+  # Поле 5: день недели (0-6, 0=воскресенье)
+  schedule: "0 2 * * *"  # Каждый день в 02:00 UTC
+  
+  # Альтернативные расписания:
+  # "0 */4 * * *"        # Каждые 4 часа
+  # "0 2 * * 0"          # Каждое воскресенье в 02:00
+  # "0 2 1 * *"          # Первый день каждого месяца в 02:00
+  # "30 2 * * *"         # Каждый день в 02:30
+  
+  # Шаблон для создаваемого Job
+  jobTemplate:
+    spec:
+      # Шаблон Pod для Job
+      template:
+        metadata:
+          labels:
+            app: elma-backupper
+        spec:
+          # ServiceAccount с необходимыми правами
+          serviceAccountName: elma-backupper
+          
+          # Контекст безопасности
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            runAsNonRoot: true
+          
+          # Контейнер
+          containers:
+          - name: backupper
+            image: elma365-backupper:1.0.17
+            imagePullPolicy: IfNotPresent
+            
+            # Переменные окружения
+            env:
+            # Основные параметры
+            - name: BACKUP_DST
+              value: "filesystem"
+            - name: BACKUP_LIFE
+              value: "7"  # Сохранять резервные копии 7 дней
+            
+            # Kubernetes
+            - name: KUBECONFIG
+              value: "/home/elma/.kube/config"
+            - name: K8S_NS_APP
+              value: "elma365"
+            - name: K8S_NS_DBS
+              value: "elma365-dbs"
+            
+            # Директории
+            - name: TMP_DIR
+              value: "/opt/elma365/backupper/tmp"
+            - name: BACKUP_PATH
+              value: "/opt/elma365/backupper/backup/"
+            - name: STORAGE_PATH
+              value: "/opt/elma365/backupper/storage/"
+            
+            # Логирование
+            - name: GLOBAL_LOG_LEVEL
+              value: "INFO"  # Включите DEBUG для диагностики
+            
+            # S3 конфигурация (для резервного копирования в S3):
+            # - name: BACKUP_DST
+            #   value: "s3"
+            # - name: S3_BUCKET_NAME
+            #   value: "elma-backups"
+            # - name: S3_HOST
+            #   value: "minio.storage"
+            # - name: S3_PORT
+            #   value: "9000"
+            # - name: S3_ROOT_USER
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: s3-credentials
+            #       key: access-key
+            # - name: S3_ROOT_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: s3-credentials
+            #       key: secret-key
+            # - name: S3_SSL_ENABLED
+            #   value: "false"
+            
+            # Ресурсы
+            resources:
+              requests:
+                cpu: 500m
+                memory: 512Mi
+              limits:
+                cpu: 2
+                memory: 2Gi
+            
+            # Монтирование томов
+            volumeMounts:
+            - name: kubeconfig
+              mountPath: /home/elma/.kube
+              readOnly: true
+            - name: backup-storage
+              mountPath: /opt/elma365/backupper/backup
+            - name: tmp-storage
+              mountPath: /opt/elma365/backupper/tmp
+          
+          # Политика перезагрузки
+          restartPolicy: OnFailure
+          
+          # Томы
+          volumes:
+          - name: kubeconfig
+            secret:
+              secretName: kubeconfig
+              defaultMode: 0400
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          - name: tmp-storage
+            emptyDir:
+              sizeLimit: 50Gi
+  
+  # Количество неудачных Job для сохранения в истории
+  failedJobsHistoryLimit: 3
+  
+  # Количество успешных Job для сохранения в истории
+  successfulJobsHistoryLimit: 3
+  
+  # Ограничение количества одновременных Job (обычно 1)
+  concurrencyPolicy: Forbid  # Варианты: Allow, Forbid, Replace
+  
+  # Крайний срок для запуска Job в случае пропуска
+  # Если CronJob пропустит задачу (например, контроллер был недоступен),
+  # он попытается запустить её в течение этого времени
+  startingDeadlineSeconds: 3600  # 1 час
+
+---
+# Использование:
+# 1. Подготовка (выполняется один раз):
+#    kubectl apply -f elma-backupper-rbac.yaml
+#    kubectl create secret generic kubeconfig --from-file=config=/path/to/kubeconfig -n elma365
+#    kubectl apply -f elma-backup-pvc.yaml
+#
+# 2. Создание CronJob:
+#    kubectl apply -f elma-backupper-cronjob.yaml
+#
+# 3. Проверка CronJob:
+#    kubectl get cronjob -n elma365
+#    kubectl describe cronjob elma-backup-daily -n elma365
+#
+# 4. Проверка созданных Job:
+#    kubectl get jobs -n elma365
+#
+# 5. Просмотр логов последнего Task:
+#    kubectl get pods -n elma365 | grep elma-backup
+#    kubectl logs <pod-name> -n elma365
+#
+# 6. Просмотр событий CronJob:
+#    kubectl get events -n elma365 | grep elma-backup
+#
+# 7. Ручное запуск Job из CronJob:
+#    kubectl create job --from=cronjob/elma-backup-daily elma-backup-manual -n elma365
+#
+# 8. Удаление CronJob:
+#    kubectl delete cronjob elma-backup-daily -n elma365
+
+
+---
+# Примеры расписаний:
+
+# Ежедневное резервное копирование в 2:00 AM UTC
+# schedule: "0 2 * * *"
+
+# Каждые 6 часов
+# schedule: "0 */6 * * *"
+
+# Каждый понедельник в 2:00 AM UTC
+# schedule: "0 2 * * 1"
+
+# Дважды в день: 2:00 AM и 14:00 (2:00 PM) UTC
+# Требуется два отдельных CronJob ресурса
+
+# 1 и 15 числа каждого месяца в 2:00 AM UTC
+# schedule: "0 2 1,15 * *"
+
+# Примечание о часовых поясах:
+# Kubernetes CronJob использует UTC по умолчанию.
+# Если требуется другой часовой пояс, используйте:
+# timeZone: "America/New_York"  (требует Kubernetes 1.25+)
