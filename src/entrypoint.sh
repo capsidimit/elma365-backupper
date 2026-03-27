@@ -44,14 +44,17 @@ log_debug()     { log "$1" "DEBUG" "${LOG_DEBUG_COLOR}"; }
 
 #region VARIABLES
 
+COMMAND="backup-list"
+DB_TYPE="all"
+
 IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-"hub.elma365.tech"}"
 BACKUP_DST="${BACKUP_DST:-filesystem}"
 BACKUP_LIFE="${BACKUP_LIFE:-7}"
 
 # Filesystem backup settings
 TMP_DIR="${TMP_DIR:-/opt/elma365/backupper/tmp}"
-BACKUP_PATH="${BACKUP_PATH:-/opt/elma365/backupper/backup/}"
-STORAGE_PATH="${STORAGE_PATH:-/opt/elma365/backupper/storage/}"
+BACKUP_PATH="${BACKUP_PATH:-/opt/elma365/backupper/backup}"
+STORAGE_PATH="${STORAGE_PATH:-/opt/elma365/backupper/backup}"
 
 # Kubernetes settings
 KUBECONFIG="${KUBECONFIG:-/home/elma/.kube/config}"
@@ -87,7 +90,7 @@ function usage {
     echo -e "  backup-list                                 Показать список существующих резервных копий" 
     echo -e ""
     echo -e "Database types:"
-    echo -e "  postgresql                                   PostgreSQL"
+    echo -e "  postgres                                     PostgreSQL"
     echo -e "  mongo                                        MongoDB"
     echo -e "  s3                                           S3 хранилище"
     echo -e "  all                                          Все поддерживаемые типы баз данных и хранилищ"
@@ -190,6 +193,12 @@ mkdir -p "/opt/elma365/backupper/secrets" 2>/dev/null
 #region Process arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        backup|restore|backup-list)
+            COMMMAND="$1"
+            ;;
+        postgres|mongo|s3|all)
+            DB_TYPE="$1"
+            ;;
         -d|--backup-dest)
             if ! [[ " $valid_backup_dests " =~ " $2 " ]] ; then
                 error_exit "Некорректное место сохранения резервной копии. Ожидается одно из [s3, filesystem], текущее значение: \"$2\""
@@ -258,11 +267,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --s3-ssl-enabled)
             S3_SSL_ENABLED="true"
-            shift
             ;;
         --s3-in-k8s)
             S3_IN_K8S="true"
-            shift
             ;;
         --s3-src-port)
             if ! [[ "$2" =~ ^[0-9]+$ ]] ; then  
@@ -319,32 +326,32 @@ while [[ $# -gt 0 ]]; do
 done
 #endregion
 
-
+# Using template to prepare config
 cat << EOF > /opt/elma365/backupper/etc/config
 # Elma365 Backupper Configuration
 # Параметр KUBECONFIG задаёт расположение конфигурационного файла подключения к Kubernetes
 # при пустой переменной происходит попытка обращения к конфигурационному файлу по пути ~/.kube/config
-KUBECONFIG=""
+KUBECONFIG="${KUBECONFIG}"
 # Параметр BACKUP_DST задает куда будет осуществляться резервное копирование
 # Доступные варианты: s3, filesystem
 # s3 - резервная копия будет сохранена на S3 хранилище
 # filesystem - резервная копия будет сохранена на локальную файловую систему по пути указанному в параметре BACKUP_PATH
-BACKUP_DST=filesystem
+BACKUP_DST="${BACKUP_DST}"
 
 # namespace, в который установлено приложение ELMA365
-K8S_NS_APP=elma365
+K8S_NS_APP="${K8S_NS_APP}"
 # namespace, в который установлены встроенные базы данных
-K8S_NS_DBS=elma365-dbs
+K8S_NS_DBS="${K8S_NS_DBS}"
 
 # период хранения резервной копии в днях
-BACKUP_LIFE=7
+BACKUP_LIFE=${BACKUP_LIFE}
 
 # Директория для хранения временных резервных копий
-TMP_DIR="/opt/elma365/backupper/tmp"
+TMP_DIR="${TMP_DIR}"
 # Директория, из которой будут браться резервные копии
-BACKUP_PATH="/opt/elma365/backupper/backup/"
+BACKUP_PATH="${BACKUP_PATH}"
 # Директория в которую будут сохраняться резервные копии
-STORAGE_PATH="/opt/elma365/backupper/backup/"
+STORAGE_PATH="${STORAGE_PATH}"
 
 # Параметры для настройки подключения к S3 хранилищу, в которое будут сохраняться резервные копии
 # S3_BUCKET_NAME - наименование бакета в который будут сохраняться резервные копии. Зарезервированные (недоступные) наименования бакетов имеют формат (маска) "s3elma365*"
@@ -354,13 +361,13 @@ STORAGE_PATH="/opt/elma365/backupper/backup/"
 # S3_ROOT_PASSWORD - пароль для пользователя S3_ROOT_USER
 # S3_SSL_ENABLED - используется ли шифрование при подключении к внешнему S3 хранилищу (true/false)
 # S3_IN_K8S - находится ли указанное выше хранилище в кластере K8S (true/false)
-S3_BUCKET_NAME=""
-S3_HOST=""
-S3_PORT=""
-S3_ROOT_USER=""
-S3_ROOT_PASSWORD=""
-S3_SSL_ENABLED=false
-S3_IN_K8S=false
+S3_BUCKET_NAME="${S3_BUCKET_NAME}"
+S3_HOST="${S3_HOST}"
+S3_PORT=${S3_PORT}
+S3_ROOT_USER="${S3_ROOT_USER}"
+S3_ROOT_PASSWORD="${S3_ROOT_PASSWORD}"
+S3_SSL_ENABLED=${S3_SSL_ENABLED}
+S3_IN_K8S=${S3_IN_K8S}
 
 # Параметры переадресации портов для доступа к базам данных в кластере Kubernetes
 # В Kubernetes кластер будут переадресованы локальные порты, указанные в параметрах:
@@ -369,11 +376,22 @@ S3_IN_K8S=false
 #   DST_S3_SRC_PORT - порт для подключения к S3 хранилищу назначения
 # PG_SRC_PORT — порт для подключения к PostgreSQL
 # MONGO_SRC_PORT — порт для подключения к MongoDB
-S3_SRC_PORT=7000
-DST_S3_SRC_PORT=7001
-PG_SRC_PORT=7001
-MONGO_SRC_PORT=7002
+S3_SRC_PORT=${S3_SRC_PORT}
+DST_S3_SRC_PORT=${DST_S3_SRC_PORT}
+PG_SRC_PORT=${PG_SRC_PORT}
+MONGO_SRC_PORT=${MONGO_SRC_PORT}
 
 # Адрес приватного репозитория
-# IMAGE_REPOSITORY="example-registry.com:5000"
+IMAGE_REPOSITORY="${IMAGE_REPOSITORY}"
 EOF
+
+if [[ -z "$COMMAND" ]]; then
+    error_exit "Command not sepcified!"
+fi
+if [[ -z "$DB_TYPE" ]]; then
+    error_exit "Database type not sepcified!"
+fi
+
+/usr/local/bin/elma365-backupper $COMMAND $DB_TYPE \
+    --storage "${STORAGE_PATH}" \
+    --backup-path "${BACKUP_PATH}"
