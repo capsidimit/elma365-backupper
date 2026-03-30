@@ -14,7 +14,7 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu:25.10@sha256:4a9232cc47bf99defcc8860ef6222c99773330367fcecbf21ba2edb0b810a31e
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
