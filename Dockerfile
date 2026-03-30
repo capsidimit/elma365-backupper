@@ -67,7 +67,13 @@ ENTRYPOINT ["./entrypoint.sh"]
 ARG ELMA_BACKUPPER_VERSION
 ARG BUILD_DATE
 ARG GIT_SHA
+ARG GIT_URL
+ARG VERSION
 LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.url="${GIT_URL}" \
+      org.opencontainers.image.source="${GIT_URL}" \
+      org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.base.name="docker.io/debian@${BASE_HASH}" \
       org.opencontainers.image.title="elma365-backupper" \
       org.opencontainers.image.version="${ELMA_BACKUPPER_VERSION}"
