@@ -196,7 +196,7 @@ mkdir -p "/opt/elma365/backupper/secrets" 2>/dev/null
 while [[ $# -gt 0 ]]; do
     case "$1" in
         backup|restore|backup-list)
-            COMMMAND="$1"
+            COMMAND="$1"
             ;;
         postgres|mongo|s3|all)
             DB_TYPE="$1"
