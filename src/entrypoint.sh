@@ -66,7 +66,7 @@ K8S_NS_DBS="${K8S_NS_DBS:-elma365-dbs}"
 # S3 backup settings
 S3_BUCKET_NAME="${S3_BUCKET_NAME:-s3elma365}"
 S3_HOST="${S3_HOST:-minio.elma365-dbs.svc.cluster.local}"
-S3_PORT="${S3_PORT:-minio-api}"
+S3_PORT="${S3_PORT:-9000}"
 S3_ROOT_USER="${S3_ROOT_USER:-}"
 S3_ROOT_PASSWORD="${S3_ROOT_PASSWORD:-}"
 S3_SSL_ENABLED="${S3_SSL_ENABLED:-"false"}"
