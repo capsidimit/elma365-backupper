@@ -44,6 +44,7 @@ log_debug()     { log "$1" "DEBUG" "${LOG_DEBUG_COLOR}"; }
 
 #region VARIABLES
 
+BASH_OPTS="${BASH_OPTS:-""}"
 COMMAND="backup-list"
 DB_TYPE="all"
 
@@ -392,4 +393,11 @@ if [[ -z "$DB_TYPE" ]]; then
     error_exit "Database type not sepcified!"
 fi
 
-exec elma365-backupper $COMMAND $DB_TYPE
+if [[ "${GLOBAL_LOG_LEVEL}" == "DEBUG" ]]; then
+    BASH_OPTS="-xv"
+fi
+
+exec bash \
+    ${BASH_OPTS:+$BASH_OPTS} \
+    "/usr/local/bin/elma365-backupper" \
+    "$COMMAND $DB_TYPE --storage \"${STORAGE_PATH}\" --backup-path \"${BACKUP_PATH}\""
