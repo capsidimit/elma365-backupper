@@ -33,18 +33,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
         elma365-backupper=${ELMA_BACKUPPER_VERSION} \
     && rm -rf /var/lib/apt/lists/*
-
-
-FROM docker.io/debian@${BASE_HASH}
-ENV DEBIAN_FRONTEND=noninteractive
-# Installing basic dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && find / -xdev \( -perm -4000 -o -perm -2000 \) -exec chmod ug-s {} \; 2>/dev/null || true
 # Adding execution user
 RUN groupadd --gid 10001 elma && \
     useradd --uid 10001 --gid 10001 \
@@ -52,11 +40,8 @@ RUN groupadd --gid 10001 elma && \
             --shell /usr/sbin/nologin \
             elma && \
     mkdir /home/elma && \
-    chown 10001:10001 -R /home/elma
-# Copying elma-backupper
-COPY --from=builder --chown=10001:10001 /opt/elma365    /opt/elma365
-COPY --from=builder --chown=10001:10001 /usr/local/bin/elma365-backupper \
-                                        /usr/local/bin/elma365-backupper
+    chown 10001:10001 -R /home/elma && \
+    chown 10001:10001 -R /opt/elma365
 WORKDIR /home/elma
 COPY --chown=10001:10001 --chmod=500 src/entrypoint.sh  ./entrypoint.sh
 
