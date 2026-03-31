@@ -14,6 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         curl \
         gpg \
         lsb-release \
+        procps \
     && rm -rf /var/lib/apt/lists/*
 # Adding elma apt repo
 RUN curl -fsSL --proto '=https' --tlsv1.2 \
