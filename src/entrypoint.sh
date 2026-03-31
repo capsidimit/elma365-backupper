@@ -392,6 +392,4 @@ if [[ -z "$DB_TYPE" ]]; then
     error_exit "Database type not sepcified!"
 fi
 
-/usr/local/bin/elma365-backupper $COMMAND $DB_TYPE \
-    --storage "${STORAGE_PATH}" \
-    --backup-path "${BACKUP_PATH}"
+bash -lc "/usr/local/bin/elma365-backupper $COMMAND $DB_TYPE --storage \"${STORAGE_PATH}\" --backup-path \"${BACKUP_PATH}\""
