@@ -392,4 +392,4 @@ if [[ -z "$DB_TYPE" ]]; then
     error_exit "Database type not sepcified!"
 fi
 
-exec "/usr/local/bin/elma365-backupper $COMMAND $DB_TYPE"
+exec elma365-backupper $COMMAND $DB_TYPE
