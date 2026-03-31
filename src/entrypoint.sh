@@ -53,8 +53,8 @@ BACKUP_LIFE="${BACKUP_LIFE:-7}"
 
 # Filesystem backup settings
 TMP_DIR="${TMP_DIR:-/opt/elma365/backupper/tmp}"
-BACKUP_PATH="${BACKUP_PATH:-/opt/elma365/backupper/backup}"
-STORAGE_PATH="${STORAGE_PATH:-/opt/elma365/backupper/backup}"
+BACKUP_PATH="${BACKUP_PATH:-/opt/elma365/backupper/backup/}"
+STORAGE_PATH="${STORAGE_PATH:-/opt/elma365/backupper/backup/}"
 
 # Kubernetes settings
 KUBECONFIG="${KUBECONFIG:-/home/elma/.kube/config}"
@@ -392,4 +392,4 @@ if [[ -z "$DB_TYPE" ]]; then
     error_exit "Database type not sepcified!"
 fi
 
-bash -lc "/usr/local/bin/elma365-backupper $COMMAND $DB_TYPE --storage \"${STORAGE_PATH}\" --backup-path \"${BACKUP_PATH}\""
+exec "/usr/local/bin/elma365-backupper $COMMAND $DB_TYPE"

@@ -53,6 +53,7 @@ ARG ELMA_BACKUPPER_VERSION
 ARG BUILD_DATE
 ARG GIT_SHA
 ARG GIT_URL
+ARG BASE_HASH
 ARG VERSION
 LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.url="${GIT_URL}" \
