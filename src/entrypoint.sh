@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ELMA backupper version: 1.0.17
 # This script is responsible for parsing arguments and setting up environment variables for the backupper script.
 
+set -euo pipefail
 
 #region Logging functions
 GLOBAL_LOG_LEVEL="INFO"
@@ -54,8 +55,8 @@ BACKUP_LIFE="${BACKUP_LIFE:-7}"
 
 # Filesystem backup settings
 TMP_DIR="${TMP_DIR:-/opt/elma365/backupper/tmp}"
-BACKUP_PATH="${BACKUP_PATH:-/opt/elma365/backupper/backup/}"
-STORAGE_PATH="${STORAGE_PATH:-/opt/elma365/backupper/backup/}"
+BACKUP_PATH="${BACKUP_PATH:-/opt/elma365/backupper/backup}"
+STORAGE_PATH="${STORAGE_PATH:-/opt/elma365/backupper/backup}"
 
 # Kubernetes settings
 KUBECONFIG="${KUBECONFIG:-/home/elma/.kube/config}"
